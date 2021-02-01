@@ -21,12 +21,12 @@ spec:
         # env:
         resources:
           # keep request = limit to keep this container in guaranteed class
-          limits:
-            cpu: 100m
-            memory: 100Mi
-          requests:
-            cpu: 100m
-            memory: 100Mi
+          #limits:
+          #  cpu: 100m
+          #  memory: 100Mi
+          #requests:
+          #  cpu: 100m
+          #  memory: 100Mi
         env:
           # The following env variables set up basic auth twith the default admin user and admin password.
           - name: GF_AUTH_BASIC_ENABLED
