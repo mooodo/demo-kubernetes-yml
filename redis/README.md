@@ -24,7 +24,7 @@ docker push 172.31.87.111:5000/redis-tools
 
 ```bash
 cd redis-cluster
-kubectl create -f redis-cluster.yaml
+kubectl create -f .
 ```
 执行成功后，在k8s部署了3个redis主节点，并分别为它们部署了从节点
 ### 3.验证redis集群部署
