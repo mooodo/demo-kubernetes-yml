@@ -1,0 +1,60 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: mysql
+  name: mysql 
+  namespace: default
+spec:
+  replicas: 1
+  serviceName: mysql
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      name: mysql
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.6.35
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "****"
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        hostPath:
+          path: /mnt/data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-svc
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 3306
+    targetPort: 3306
+    nodePort: 32306
+  selector:
+    app: mysql

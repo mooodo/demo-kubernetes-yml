@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: metricbeat
+  namespace: kube-system
+  labels:
+    k8s-app: metricbeat
+    addonmanager.kubernetes.io/mode: Reconcile
+spec:
+  selector:
+    matchLabels:
+      k8s-app: metricbeat
+  template:
+    metadata:
+      labels:
+        k8s-app: metricbeat
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: 'docker/default'
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: metricbeat
+        image: repository:5000/metricbeat:7.2.0
+        # command: ["metricbeat","setup","-e"]
+        #resources:
+          # need more cpu upon initialization, therefore burstable class
+          #limits:
+          #  cpu: 1000m
+          #requests:
+          #  cpu: 100m
+        env:
+          - name: ELASTICSEARCH_HOSTS
+            value: http://elasticsearch-logging-0.elasticsearch-logging:9200
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/metricbeat/metricbeat.yml
+          readOnly: true
+          subPath: metricbeat.yml
+        - name: modules
+          mountPath: /usr/share/metricbeat/modules.d
+          readOnly: true
+        - name: dockersock
+          mountPath: /var/run/docker.sock
+#        - name: proc
+#          mountPath: /hostfs/proc
+#          readOnly: true
+#        - name: cgroup
+#          mountPath: /hostfs/sys/fs/cgroup
+#          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: metricbeat-config
+          items:
+          - key: metricbeat.yml
+            path: metricbeat.yml
+      - name: modules
+        configMap:
+          name: metricbeat-config
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock

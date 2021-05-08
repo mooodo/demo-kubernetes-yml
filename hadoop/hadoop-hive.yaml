@@ -1,0 +1,367 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-conf
+  namespace: bigdata
+data:
+  HDFS_MASTER_SERVICE: hadoop-master
+  HADOOP_YARN_MASTER: hadoop-master
+  core-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://@HDFS_MASTER_SERVICE@:9000/</value>
+      </property>
+    </configuration>
+  hdfs-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>file:///root/hdfs/namenode</value>
+        <description>NameNode directory for namespace and transaction logs storage.</description>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>file:///root/hdfs/datanode</value>
+        <description>DataNode directory</description>
+      </property>
+      <property>
+        <name>dfs.replication</name>
+        <value>2</value>
+      </property>
+    </configuration>
+  yarn-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+        <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.hostname</name>
+        <value>@HADOOP_YARN_MASTER@</value>
+      </property>
+    </configuration>
+  hive-site.xml: |-
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+      <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://mysql-0.mysql:3306/hive?useUnicode=true&amp;characterEncoding=utf8</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.cj.jdbc.Driver</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>root</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>1234</value>
+      </property>
+      <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+      </property>
+    </configuration>
+  spark-env.sh: |-
+    #!/usr/bin/env bash
+    export SPARK_MASTER_HOST=127.0.0.1
+    export SPARK_LOCAL_IP=127.0.0.1
+    export HADOOP_HOME=/usr/local/hadoop
+    export HIVE_HOME=/usr/local/hive
+    export HIVE_CONF_DIR=${HIVE_HOME}/conf
+    export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export HDFS_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export SPARK_CLASSPATH=$HIVE_HOME/lib:$SPARK_CLASSPATH
+    
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-master
+  namespace: bigdata
+spec:
+  ports:
+  - port: 9000
+    name: rpc
+    targetPort: 9000
+  - port: 50070
+    name: dfs
+  - port: 8030
+    name: "8030"
+    targetPort: 8030
+  - port: 8031
+    name: "8031"
+    targetPort: 8031
+  - port: 8032
+    name: "8032"
+    targetPort: 8032
+  - port: 8088
+    name: http
+    targetPort: 8088
+  - port: 7077
+    name: spark
+    targetPort: 7077
+  - port: 8080
+    name: sparkui
+    targetPort: 8080
+  selector:
+    app: hadoop-master
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-svc
+  namespace: bigdata
+spec:
+  type: NodePort
+  ports:
+  - port: 50070
+    name: dfs
+    targetPort: 50070
+    nodePort: 32070
+  - port: 8088
+    name: http
+    targetPort: 8088
+    nodePort: 32088
+  - port: 8080
+    name: spark
+    targetPort: 8080
+    nodePort: 32080
+  selector:
+    app: hadoop-master
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: hadoop-master
+  name: hadoop-master
+  namespace: bigdata
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hadoop-master
+  template:
+    metadata:
+      name: hadoop-master
+      labels:
+        app: hadoop-master
+    spec:
+      nodeName: node1
+      containers:
+      - name: hadoop-master
+        image: repository:5000/hadoop-spark
+        imagePullPolicy: Always
+        command:
+        - bash
+        - "-c"
+        - |
+          cp /tmp/* /usr/local/hadoop/etc/hadoop/
+          sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" /usr/local/hadoop/etc/hadoop/core-site.xml
+          sed -i "s/@HADOOP_YARN_MASTER@/$HADOOP_YARN_MASTER/g" /usr/local/hadoop/etc/hadoop/yarn-site.xml
+
+          echo "Start NameNode ..."
+          if [ ! -d "/root/hdfs/namenode/current/" ];then
+          hdfs namenode -format
+          fi
+          nohup hdfs namenode>$HADOOP_HOME/logs/hdfs.out 2>&1 &
+          echo "Start Yarn Resource Manager ..."
+          nohup yarn resourcemanager>$HADOOP_HOME/logs/yarn.out 2>&1 &
+          echo "Start Hive ..."
+          #schematool -dbType mysql -initSchema
+          echo "Start Spark ..."
+          cp /tmp/spark/* /usr/local/spark/conf
+          cp /usr/local/hive/conf/* /usr/local/spark/conf
+          cp /usr/local/hive/lib/mysql-connector-java-8.0.15.jar /usr/local/spark/jars
+          chmod +x /usr/local/spark/conf/spark-env.sh
+          bash /usr/local/spark/conf/spark-env.sh
+          bash /usr/local/spark/sbin/start-master.sh
+          tail -f $HADOOP_HOME/logs/hdfs.out
+        env:
+        - name: HDFS_MASTER_SERVICE
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HDFS_MASTER_SERVICE
+        - name: HADOOP_YARN_MASTER
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HADOOP_YARN_MASTER
+        volumeMounts:
+        - name: namenode-persistent-storage
+          mountPath: /root/hdfs/namenode
+        - name: datanode-persistent-storage
+          mountPath: /root/hdfs/datanode
+        - name: core-conf
+          mountPath: /tmp/core-site.xml
+          subPath: core-site.xml
+        - name: hdfs-conf
+          mountPath: /tmp/hdfs-site.xml
+          subPath: hdfs-site.xml
+        - name: yarn-conf
+          mountPath: /tmp/yarn-site.xml
+          subPath: yarn-site.xml
+        - name: hive-conf
+          mountPath: /usr/local/hive/conf/hive-site.xml
+          subPath: hive-site.xml
+        - name: spark-conf
+          mountPath: /tmp/spark/spark-env.sh
+          subPath: spark-env.sh
+        - name: app-home
+          mountPath: /home
+      volumes:
+      - name: namenode-persistent-storage
+        hostPath:
+          path: /usr/local/hadoop/hdfs/namenode
+      - name: datanode-persistent-storage
+        hostPath:
+          path: /usr/local/hadoop/hdfs/datanode
+      - name: core-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: core-site.xml
+            path: core-site.xml
+      - name: hdfs-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hdfs-site.xml
+            path: hdfs-site.xml
+      - name: yarn-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: yarn-site.xml
+            path: yarn-site.xml
+      - name: hive-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hive-site.xml
+            path: hive-site.xml
+      - name: spark-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: spark-env.sh
+            path: spark-env.sh
+      - name: app-home
+        hostPath:
+          path: /home/hadoop/app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-slave
+  namespace: bigdata
+spec:
+  ports:
+  - port: 8040
+    name: yarn-slave
+  - port: 8081
+    name: spark-worker
+  selector:
+    app: hadoop-slave
+  clusterIP: None
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: hadoop-slave
+  name: hadoop-slave
+  namespace: bigdata
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hadoop-slave
+  template:
+    metadata:
+      name: hadoop-slave
+      labels:
+        app: hadoop-slave
+    spec:
+      containers:
+      - name: hadoop-slave
+        image: repository:5000/hadoop-spark
+        command:
+        - bash
+        - "-c"
+        - |
+          cp /tmp/* /usr/local/hadoop/etc/hadoop/
+          sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" $HADOOP_HOME/etc/hadoop/core-site.xml
+          sed -i "s/@HADOOP_YARN_MASTER@/$HADOOP_YARN_MASTER/g" $HADOOP_HOME/etc/hadoop/yarn-site.xml
+          echo "Start DataNode ..."
+          nohup hdfs datanode -regular>$HADOOP_HOME/logs/hdfs.out 2>&1 &
+          echo "Start Yarn Resource Node  ..."
+          nohup yarn nodemanager>$HADOOP_HOME/logs/yarn.out 2>&1 &
+          echo "Start Spark ..."
+          bash /usr/local/spark/sbin/start-slave.sh spark://$HDFS_MASTER_SERVICE:7077
+          tail -f $HADOOP_HOME/logs/hdfs.out
+        env:
+        - name: HDFS_MASTER_SERVICE
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HDFS_MASTER_SERVICE
+        - name: HADOOP_YARN_MASTER
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HADOOP_YARN_MASTER
+        volumeMounts:
+        - name: namenode-persistent-storage
+          mountPath: /root/hdfs/namenode
+        - name: datanode-persistent-storage
+          mountPath: /root/hdfs/datanode
+        - name: core-conf
+          mountPath: /tmp/core-site.xml
+          subPath: core-site.xml
+        - name: hdfs-conf
+          mountPath: /tmp/hdfs-site.xml
+          subPath: hdfs-site.xml
+        - name: yarn-conf
+          mountPath: /tmp/yarn-site.xml
+          subPath: yarn-site.xml
+      volumes:
+      - name: namenode-persistent-storage
+        hostPath:
+          path: /usr/local/hadoop/hdfs/namenode
+      - name: datanode-persistent-storage
+        hostPath:
+          path: /usr/local/hadoop/hdfs/datanode
+      - name: core-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: core-site.xml
+            path: core-site.xml
+      - name: hdfs-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hdfs-site.xml
+            path: hdfs-site.xml
+      - name: yarn-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: yarn-site.xml
+            path: yarn-site.xml

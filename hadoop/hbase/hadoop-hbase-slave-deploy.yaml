@@ -1,0 +1,115 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: hadoop-slave
+  name: hadoop-slave
+  namespace: bigdata
+spec:
+  replicas: 2
+  serviceName: hadoop-slave
+  podManagementPolicy: "Parallel"
+  selector:
+    matchLabels:
+      app: hadoop-slave
+  template:
+    metadata:
+      name: hadoop-slave
+      labels:
+        app: hadoop-slave
+    spec:
+      containers:
+      - name: hadoop-slave
+        image: repository:5000/hadoop-hbase:kylin-phoenix
+        command:
+        - bash
+        - "-c"
+        - |
+          cp /tmp/* /usr/local/hadoop/etc/hadoop/
+          sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" $HADOOP_HOME/etc/hadoop/core-site.xml
+          sed -i "s/@HADOOP_YARN_MASTER@/$HADOOP_YARN_MASTER/g" $HADOOP_HOME/etc/hadoop/yarn-site.xml
+          echo "Start DataNode ..."
+          nohup hdfs datanode -regular>$HADOOP_HOME/logs/hdfs.out 2>&1 &
+          echo "Start Yarn Resource Node  ..."
+          nohup yarn nodemanager>$HADOOP_HOME/logs/yarn.out 2>&1 &
+          echo "Start Spark ..."
+          bash /usr/local/spark/sbin/start-slave.sh spark://$HDFS_MASTER_SERVICE:7077
+          echo "Start HBase ..."
+          cp /usr/local/hadoop/etc/hadoop/core-site.xml /usr/local/hbase/conf
+          cp /usr/local/hadoop/etc/hadoop/hdfs-site.xml /usr/local/hbase/conf
+          cp /tmp/hbase-site.xml /usr/local/hbase/conf
+          sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" $HBASE_HOME/conf/hbase-site.xml
+          sed -i "1iexport HBASE_MANAGES_ZK=false" $HBASE_HOME/conf/hbase-env.sh
+          sed -i "1iexport JAVA_HOME=$JAVA_HOME" $HBASE_HOME/conf/hbase-env.sh
+          chmod +x /usr/local/hbase/conf/hbase-env.sh
+          bash /usr/local/hbase/conf/hbase-env.sh
+          bash /usr/local/hbase/bin/start-hbase.sh
+          tail -f $HADOOP_HOME/logs/hdfs.out
+        env:
+        - name: HDFS_MASTER_SERVICE
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HDFS_MASTER_SERVICE
+        - name: HADOOP_YARN_MASTER
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HADOOP_YARN_MASTER
+        volumeMounts:
+        - name: namenode-persistent-storage
+          mountPath: /root/hdfs/namenode
+        - name: datanode-persistent-storage
+          mountPath: /root/hdfs/datanode
+        - name: core-conf
+          mountPath: /tmp/core-site.xml
+          subPath: core-site.xml
+        - name: hdfs-conf
+          mountPath: /tmp/hdfs-site.xml
+          subPath: hdfs-site.xml
+        - name: yarn-conf
+          mountPath: /tmp/yarn-site.xml
+          subPath: yarn-site.xml
+        - name: hive-conf
+          mountPath: /usr/local/hive/conf/hive-site.xml
+          subPath: hive-site.xml
+        - name: hbase-conf
+          mountPath: /tmp/hbase-site.xml
+          subPath: hbase-site.xml
+      volumes:
+      - name: namenode-persistent-storage
+        hostPath:
+          path: /usr/local/hadoop/hdfs/namenode
+      - name: datanode-persistent-storage
+        hostPath:
+          path: /usr/local/hadoop/hdfs/datanode
+      - name: core-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: core-site.xml
+            path: core-site.xml
+      - name: hdfs-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hdfs-site.xml
+            path: hdfs-site.xml
+      - name: yarn-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: yarn-site.xml
+            path: yarn-site.xml
+      - name: hive-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hive-site.xml
+            path: hive-site.xml
+      - name: hbase-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hbase-site.xml
+            path: hbase-site.xml

@@ -1,0 +1,52 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: rabbitmq
+  name: rabbitmq
+  namespace: default
+spec:
+  replicas: 1
+  serviceName: rabbitmq
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      name: rabbitmq
+      labels:
+        app: rabbitmq
+    spec:
+      hostNetwork: true
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:management
+        imagePullPolicy: Always
+        volumeMounts: 
+         - name: data
+           mountPath: /var/lib/rabbitmq
+      volumes:
+      - name: data
+        hostPath:
+          path: /var/lib/rabbitmq
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: rabbitmq
+  name: rabbitmq
+  namespace: default
+spec:
+  ports:
+  - name: amqp1
+    port: 5671
+  - name: amqp2
+    port: 5672
+  - name: management
+    port: 15671
+  - name: epmd
+    port: 25671
+  clusterIP: None
+  selector:
+    app: rabbitmq

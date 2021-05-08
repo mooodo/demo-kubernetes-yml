@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apm-server-conf
+  namespace: kube-system
+data:
+  apm-server.yml: |-
+    apm-server:
+      host: "0.0.0.0:8200"
+    output.elasticsearch:
+      hosts: ["http://elasticsearch-logging-0.elasticsearch-logging:9200"]
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: apm-server
+  name: apm-server
+  namespace: kube-system
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: apm-server
+  template:
+    metadata:
+      labels:
+        app: apm-server
+    spec:
+      containers:
+      - image: repository:5000/apm/apm-server:6.8.7
+        imagePullPolicy: IfNotPresent
+        name: apm-server
+        ports:
+        - containerPort: 8200
+          protocol: TCP
+        #resources:
+        #  limits:
+        #    cpu: "1"
+        #  requests:
+        #    cpu: 25m
+        #    memory: 512Mi
+        volumeMounts:
+        - mountPath: /usr/share/apm-server/apm-server.yml
+          name: config
+          subPath: apm-server.yml
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: apm-server-conf
+        name: config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: apm-server
+  name: apm-server
+  namespace: kube-system
+spec:
+  type: LoadBalancer
+  ports:
+  - name: apm-server
+    port: 8200
+    nodePort: 32200
+    protocol: TCP
+  selector:
+    app: apm-server
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+  generation: 1
+  labels:
+    app: apm-server
+  name: apm-server
+  namespace: kube-system
+spec:
+  rules:
+  - host: apm-server
+    http:
+      paths:
+      - backend:
+          serviceName: apm-server
+          servicePort: 8200
+        path: /

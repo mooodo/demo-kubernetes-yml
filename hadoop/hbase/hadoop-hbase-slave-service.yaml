@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-slave
+  namespace: bigdata
+spec:
+  ports:
+  - port: 8040
+    name: yarn-slave
+  - port: 8081
+    name: spark-worker
+  - port: 16000
+    name: hbase-cli
+    targetPort: 16000
+  - port: 16010
+    name: hbase-cluster
+    targetPort: 16010
+  - port: 16020
+    name: hbase-region1
+    targetPort: 16020
+  - port: 16030
+    name: hbase-region2
+    targetPort: 16030
+  selector:
+    app: hadoop-slave
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-slave-svc
+  namespace: bigdata
+spec:
+  type: NodePort
+  ports:
+  - port: 16010
+    name: hbase-cluster
+    targetPort: 16010
+    nodePort: 32010
+  - port: 16030
+    name: hbase-region2
+    targetPort: 16030
+    nodePort: 32030
+  selector:
+    app: hadoop-slave

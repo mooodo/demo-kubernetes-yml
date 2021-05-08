@@ -1,0 +1,32 @@
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: redis-cluster
+  name: redis-cluster
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 6379
+  clusterIP: None
+  selector:
+    app: redis-cluster
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: redis-cluster
+  name: redis-svc-cluster
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 6379
+    targetPort: 6379
+    nodePort: 30379
+  selector:
+    app: redis-cluster

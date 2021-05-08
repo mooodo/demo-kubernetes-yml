@@ -1,0 +1,40 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: redis-cluster
+  name: redis-cluster 
+  namespace: default
+spec:
+  replicas: 6
+  serviceName: redis-cluster
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      name: redis-cluster
+      labels:
+        app: redis-cluster
+    spec:
+      containers:
+      - name: redis
+        image: repository:5000/redis
+        imagePullPolicy: Always
+        command: ["redis-server","/etc/redis/redis.conf"]
+        volumeMounts: 
+        - name: data
+          mountPath: /mnt
+        - name: config
+          mountPath: /etc/redis/redis.conf
+          subPath: redis.conf
+      volumes:
+      - name: config
+        configMap:
+          name: redis-configmap
+          items:
+          - key: redis.conf
+            path: redis.conf
+      - name: data
+        hostPath:
+          path: /etc/redis

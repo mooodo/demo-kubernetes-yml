@@ -1,0 +1,55 @@
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  labels:
+    app: zipkin
+  name: zipkin
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      name: zipkin
+      labels:
+        app: zipkin
+    spec:
+      containers:
+      - name: zipkin
+        image: openzipkin/zipkin
+        imagePullPolicy: Always
+        env:
+          - name: STORAGE_TYPE
+            value: "mysql"
+          - name: MYSQL_HOST
+            value: "mysql-0.mysql"
+          - name: MYSQL_DB
+            value: "zipkin"
+          - name: MYSQL_USER
+            value: "zipkin"
+          - name: MYSQL_PASS 
+            value: "zipkin1234"
+          - name: RABBIT_ADDRESSES
+            value: "rabbitmq-0.rabbitmq:5672"
+          - name: RABBIT_USER
+            value: "guest"
+          - name: RABBIT_PASSWORD
+            value: "guest"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: zipkin
+  name: zipkin
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+  - port: 9411 
+    targetPort: 9411
+    nodePort: 30411
+  selector:
+    app: zipkin

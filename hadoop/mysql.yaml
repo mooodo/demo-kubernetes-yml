@@ -1,0 +1,49 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: mysql
+  name: mysql 
+  namespace: bigdata
+spec:
+  replicas: 1
+  serviceName: mysql
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      name: mysql
+      labels:
+        app: mysql
+    spec:
+      nodeName: node3
+      containers:
+      - name: mysql
+        image: mysql:5.6.35
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "1234"
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        hostPath:
+          path: /usr/local/hive/mysql/data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: bigdata
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql
+  clusterIP: None
+
