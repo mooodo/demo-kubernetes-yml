@@ -21,7 +21,7 @@ spec:
         - "-c"
         - |
           sleep 10
-          redis-trib.py create `dig +short redis-cluster-0.redis-cluster.default.svc.cluster.local`:6379 `dig +short redis-cluster-1.redis-cluster.default.svc.cluster.local`:6379 `dig +short redis-cluster-2.redis-cluster.default.svc.cluster.local`:6379
-          redis-trib.py replicate --master-addr `dig +short redis-cluster-0.redis-cluster.default.svc.cluster.local`:6379 --slave-addr `dig +short redis-cluster-3.redis-cluster.default.svc.cluster.local`:6379
-          redis-trib.py replicate --master-addr `dig +short redis-cluster-1.redis-cluster.default.svc.cluster.local`:6379 --slave-addr `dig +short redis-cluster-4.redis-cluster.default.svc.cluster.local`:6379
-          redis-trib.py replicate --master-addr `dig +short redis-cluster-2.redis-cluster.default.svc.cluster.local`:6379 --slave-addr `dig +short redis-cluster-5.redis-cluster.default.svc.cluster.local`:6379
+          redis-trib.py create `dig +short redis-cluster-0.redis-cluster.default.svc.cluster.local`:6379 `dig +short redis-cluster-2.redis-cluster.default.svc.cluster.local`:6379 `dig +short redis-cluster-4.redis-cluster.default.svc.cluster.local`:6379
+          redis-trib.py replicate --master-addr `dig +short redis-cluster-0.redis-cluster.default.svc.cluster.local`:6379 --slave-addr `dig +short redis-cluster-1.redis-cluster.default.svc.cluster.local`:6379
+          redis-trib.py replicate --master-addr `dig +short redis-cluster-2.redis-cluster.default.svc.cluster.local`:6379 --slave-addr `dig +short redis-cluster-3.redis-cluster.default.svc.cluster.local`:6379
+          redis-trib.py replicate --master-addr `dig +short redis-cluster-4.redis-cluster.default.svc.cluster.local`:6379 --slave-addr `dig +short redis-cluster-5.redis-cluster.default.svc.cluster.local`:6379

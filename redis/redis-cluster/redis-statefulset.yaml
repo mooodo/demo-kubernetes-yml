@@ -8,6 +8,7 @@ metadata:
 spec:
   replicas: 6
   serviceName: redis-cluster
+  podManagementPolicy: "Parallel"
   selector:
     matchLabels:
       app: redis-cluster
@@ -17,9 +18,21 @@ spec:
       labels:
         app: redis-cluster
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm: 
+              labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - redis-cluster
+              topologyKey: "kubernetes.io/hostname"
       containers:
       - name: redis
-        image: repository:5000/redis
+        image: redis
         imagePullPolicy: Always
         command: ["redis-server","/etc/redis/redis.conf"]
         volumeMounts: 
