@@ -16,8 +16,8 @@ wget https://mirrors.tuna.tsinghua.edu.cn/apache/hive-2.3.7/apache-hive-2.3.7-bi
 3.其它
 <p>下载jdk8：jdk-8u212-linux-x64.tar.gz
 <p>下载mysql驱动：mysql-connector-java-8.0.15.jar
-制作hadoop-hive镜像
-执行命令制作Docker镜像：
+<p>4.制作hadoop-hive镜像
+<p>执行命令制作Docker镜像：
 
 ```bash
 docker build -t hadoop-hive .
@@ -26,17 +26,17 @@ docker build -t hadoop-hive .
 1.下载sqoop  
 
 ```bash
+cd ../spark
 wget https://mirrors.tuna.tsinghua.edu.cn/apache/sqoop/1.4.7/sqoop-1.4.7.bin__hadoop-2.6.0.tar.gz
 ```
 
 2.下载spark  
 
 ```bash
-cd ../spark
 wget https://mirrors.tuna.tsinghua.edu.cn/apache/spark/spark-2.4.7/spark-2.4.7-bin-hadoop2.7.tgz
 ```
 3.制作hadoop-sqoop-spark镜像
-执行命令制作Docker镜像：
+<p>执行命令制作Docker镜像：
 
 ```bash
 docker build -t hadoop-sqoop-spark .
@@ -60,7 +60,7 @@ wget https://mirrors.tuna.tsinghua.edu.cn/apache/kylin/apache-kylin-3.1.2/apache
 ```
 
 4.制作hadoop-hbase-kylin镜像
-执行命令制作Docker镜像，并上传本地私服：
+<p>执行命令制作Docker镜像，并上传本地私服：
 
 ```bash
 cd hbase
@@ -79,23 +79,18 @@ kubectl apply -f mysql.yaml
 2.安装hadoop
 
 ```bash
-cd hbase
-kubectl applt -f .
+cd hbase/yaml
+kubectl apply -f .
 ```
 ## 初始化hive数据库
 ### 第一次启动时，进入master节点：  
-1.查找master节点的名称：
-
-```bash
-kubectl get po -n bigdata
-```
-2.进入master节点的操作系统：
+1.进入master节点的操作系统：
 
 ```bash
 kubectl exec -it -n bigdata hadoop-master-0 -- bash
 ```
 
-### 进入master节点后，执行以下命令初始化hive数据库：
+2.进入master节点后，执行以下命令初始化hive数据库：
 
 ```bash
 schematool -dbType mysql -initSchema
