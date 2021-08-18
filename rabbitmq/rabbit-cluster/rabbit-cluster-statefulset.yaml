@@ -1,0 +1,49 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: rabbit-cluster
+  name: rabbit-cluster
+  namespace: default
+spec:
+  replicas: 2
+  serviceName: rabbit-cluster
+  selector:
+    matchLabels:
+      app: rabbit-cluster
+  template:
+    metadata:
+      name: rabbit-cluster
+      labels:
+        app: rabbit-cluster
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - rabbit-cluster
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:management
+        imagePullPolicy: Always
+        env:
+        - name: RABBITMQ_USE_LONGNAME
+          value: 'true'
+        - name: COOKIE
+          valueFrom:
+            secretKeyRef:
+              name: erlang.cookie
+              key: erlang.cookie
+        command:
+        - bash
+        - "-c"
+        - |
+          echo $COOKIE>/var/lib/rabbitmq/.erlang.cookie
+          chmod 600 /var/lib/rabbitmq/.erlang.cookie
+          rabbitmq-plugins enable rabbitmq_management
+          rabbitmq-server
