@@ -24,18 +24,12 @@ kubectl apply -f .
 ```
 
 ### 3.完成集群配置
-用以下命令分别进入除rabbit-cluster-0以外的每一个节点：
+用以下命令分别对除rabbit-cluster-0以外的每一个节点执行集群配置：
 
 ```bash
-kubectl exec -it -n r rabbitmq-1 /bin/bash
+kubectl exec -it rabbit-cluster-1 -- bash -c "rabbitmqctl stop_app;rabbitmqctl join_cluster rabbit@rabbit-cluster-0.rabbit-cluster.default.svc.cluster.local;rabbitmqctl start_app"
 ```
-在每一个节点中完成以下集群配置：
-
-```bash
-rabbitmqctl --erlang-cookie $(cat $HOME/.erlang.cookie) stop_app
-rabbitmqctl --erlang-cookie $(cat $HOME/.erlang.cookie) join_cluster rabbit@rabbitmq-0
-rabbitmqctl --erlang-cookie $(cat $HOME/.erlang.cookie) start_app
-```
+在以上命令中，rabbit-cluster-1就是第1个节点，如果有第2个节点再改为rabbit-cluster-2以后执行...
 
 ### 4.检查集群部署
 访问http://ip:30671访问rabbitmq控制台
