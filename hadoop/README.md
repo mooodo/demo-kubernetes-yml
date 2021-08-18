@@ -73,13 +73,13 @@ docker push repository:5000/hadoop-hbase-kylin
 1.安装mysql
 
 ```bash
-cd ..
+cd hive
 kubectl apply -f mysql.yaml
 ```
 2.安装hadoop
 
 ```bash
-cd hbase/yaml
+cd ../hbase/yaml
 kubectl apply -f .
 ```
 ## 初始化hive数据库
