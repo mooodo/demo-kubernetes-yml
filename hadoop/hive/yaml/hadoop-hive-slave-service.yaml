@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-slave
+  namespace: bigdata
+spec:
+  ports:
+  - port: 8040
+    name: yarn-slave
+  selector:
+    app: hadoop-slave
+  clusterIP: None

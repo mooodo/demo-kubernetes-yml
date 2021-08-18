@@ -17,10 +17,10 @@ spec:
       labels:
         app: hadoop-master
     spec:
-      nodeName: node1
+      nodeName: master
       containers:
       - name: hadoop-master
-        image: repository:5000/hadoop-hbase:kylin-phoenix
+        image: repository:5000/hadoop-sqoop-spark
         imagePullPolicy: Always
         command:
         - bash
@@ -28,17 +28,17 @@ spec:
         - |
           cp /tmp/* /usr/local/hadoop/etc/hadoop/
           sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" /usr/local/hadoop/etc/hadoop/core-site.xml
-          sed -i "s/@HADOOP_YARN_MASTER@/$HADOOP_YARN_MASTER/g" /usr/local/hadoop/etc/hadoop/yarn-site.xml
 
           echo "Start NameNode ..."
           if [ ! -d "/root/hdfs/namenode/current/" ];then
           hdfs namenode -format
           fi
           nohup hdfs namenode>$HADOOP_HOME/logs/hdfs.out 2>&1 &
-          echo "Start Yarn Resource Manager ..."
-          nohup yarn resourcemanager>$HADOOP_HOME/logs/yarn.out 2>&1 &
           echo "Start Hive ..."
+          #if [ ! -d "/root/hdfs/namenode/initSchema" ];then
           #schematool -dbType mysql -initSchema
+          #echo 'true'>/root/hdfs/namenode/initSchema
+          #fi
           echo "Start Spark ..."
           cp /tmp/spark/* /usr/local/spark/conf
           cp /usr/local/hive/conf/* /usr/local/spark/conf
@@ -46,15 +46,10 @@ spec:
           chmod +x /usr/local/spark/conf/spark-env.sh
           bash /usr/local/spark/conf/spark-env.sh
           bash /usr/local/spark/sbin/start-master.sh
-          echo "Start Zookeeper ..."
-          cp /usr/local/zookeeper/conf/zoo_sample.cfg /usr/local/zookeeper/conf/zoo.cfg
-          sed -i '$aadmin.serverPort=8888' /usr/local/zookeeper/conf/zoo.cfg
-          bash /usr/local/zookeeper/bin/zkServer.sh start
-          echo "Start Kylin ..."
-          cp /tmp/kylin/kylin.properties /usr/local/kylin/conf
-          sed -i "1ikylin.server.mode=all" $KYLIN_HOME/conf/kylin.properties
-          sed -i "s/CLASSPATH=\${CLASSPATH}:\$JAVA_HOME\/lib\/tools.jar/&:\$HBASE_HOME\/lib\/*/" $HBASE_HOME/bin/hbase
-          $KYLIN_HOME/bin/kylin.sh start
+          echo "Start Sqoop ..."
+          cp /usr/local/hive/lib/mysql-connector-java-8.0.15.jar $SQOOP_HOME/lib
+          cp /usr/local/hive/lib/hive-exec-2.3.8.jar $SQOOP_HOME/lib
+
           tail -f $HADOOP_HOME/logs/hdfs.out
         env:
         - name: HDFS_MASTER_SERVICE
@@ -62,11 +57,6 @@ spec:
             configMapKeyRef:
               name: hadoop-conf
               key: HDFS_MASTER_SERVICE
-        - name: HADOOP_YARN_MASTER
-          valueFrom:
-            configMapKeyRef:
-              name: hadoop-conf
-              key: HADOOP_YARN_MASTER
         volumeMounts:
         - name: namenode-persistent-storage
           mountPath: /root/hdfs/namenode
@@ -78,20 +68,17 @@ spec:
         - name: hdfs-conf
           mountPath: /tmp/hdfs-site.xml
           subPath: hdfs-site.xml
-        - name: yarn-conf
-          mountPath: /tmp/yarn-site.xml
-          subPath: yarn-site.xml
         - name: hive-conf
           mountPath: /usr/local/hive/conf/hive-site.xml
           subPath: hive-site.xml
+        - name: sqoop-conf
+          mountPath: /usr/local/sqoop/conf/sqoop-env.sh
+          subPath: spark-env.sh
         - name: spark-conf
           mountPath: /tmp/spark/spark-env.sh
           subPath: spark-env.sh
         - name: app-home
           mountPath: /home
-        - name: kylin-conf
-          mountPath: /tmp/kylin/kylin.properties
-          subPath: kylin.properties
       volumes:
       - name: namenode-persistent-storage
         hostPath:
@@ -111,18 +98,18 @@ spec:
           items:
           - key: hdfs-site.xml
             path: hdfs-site.xml
-      - name: yarn-conf
-        configMap:
-          name: hadoop-conf
-          items:
-          - key: yarn-site.xml
-            path: yarn-site.xml
       - name: hive-conf
         configMap:
           name: hadoop-conf
           items:
           - key: hive-site.xml
             path: hive-site.xml
+      - name: sqoop-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: sqoop-env.sh
+            path: sqoop-env.sh
       - name: spark-conf
         configMap:
           name: hadoop-conf
@@ -132,9 +119,3 @@ spec:
       - name: app-home
         hostPath:
           path: /home/hadoop/app
-      - name: kylin-conf
-        configMap:
-          name: hadoop-conf
-          items:
-          - key: kylin.properties
-            path: kylin.properties

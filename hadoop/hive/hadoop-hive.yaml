@@ -54,7 +54,7 @@ data:
     <configuration>
       <property>
         <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:mysql://mysql-0.mysql:3306/hive?useUnicode=true&amp;characterEncoding=utf8</value>
+        <value>jdbc:mysql://mysql-0.mysql.default:3306/hive?useUnicode=true&amp;characterEncoding=utf8</value>
       </property>
       <property>
         <name>javax.jdo.option.ConnectionDriverName</name>

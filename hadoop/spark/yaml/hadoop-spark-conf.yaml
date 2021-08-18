@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-conf
+  namespace: bigdata
+data:
+  HDFS_MASTER_SERVICE: hadoop-master
+  core-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://@HDFS_MASTER_SERVICE@:9000/</value>
+      </property>
+    </configuration>
+  hdfs-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>file:///root/hdfs/namenode</value>
+        <description>NameNode directory for namespace and transaction logs storage.</description>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>file:///root/hdfs/datanode</value>
+        <description>DataNode directory</description>
+      </property>
+      <property>
+        <name>dfs.replication</name>
+        <value>2</value>
+      </property>
+    </configuration>
+  hive-site.xml: |-
+    <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+      <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://mysql-0.mysql.default:3306/hive?useUnicode=true&amp;characterEncoding=utf8</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.cj.jdbc.Driver</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>hive</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>hive1234</value>
+      </property>
+      <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+      </property>
+      <property>
+        <name>hive.metastore.uris</name>
+        <value></value>
+      </property>
+    </configuration>
+  sqoop-env.sh: |-
+    export HADOOP_COMMON_HOME=$HADOOP_HOME
+    export HADOOP_MAPRED_HOME=$HADOOP_HOME/share/hadoop/mapreduce
+    #export HBASE_HOME=
+    export HIVE_HOME=$HIVE_HOME
+    #export ZOOCFGDIR=
+  spark-env.sh: |-
+    #!/usr/bin/env bash
+    export SPARK_MASTER_HOST=127.0.0.1
+    export SPARK_LOCAL_IP=127.0.0.1
+    export HADOOP_HOME=/usr/local/hadoop
+    export HIVE_HOME=/usr/local/hive
+    export HIVE_CONF_DIR=${HIVE_HOME}/conf
+    export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export HDFS_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export YARN_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export SPARK_CLASSPATH=$HIVE_HOME/lib:$SPARK_CLASSPATH

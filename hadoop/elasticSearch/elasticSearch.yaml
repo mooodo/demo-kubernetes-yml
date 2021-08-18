@@ -1,0 +1,126 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: elastic-search
+  name: elastic-search
+  namespace: bigdata
+spec:
+  replicas: 3
+  serviceName: elastic-search
+  podManagementPolicy: "Parallel"
+  selector:
+    matchLabels:
+      app: elastic-search
+  template:
+    metadata:
+      name: elastic-search
+      labels:
+        app: elastic-search
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - elastic-search
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: elastic-search
+        image: elasticsearch:7.2.0
+        imagePullPolicy: Always
+        resources:
+          # need more cpu upon initialization, therefore burstable class
+          #limits:
+          #  cpu: 1000m
+          #requests:
+          #  cpu: 100m
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        env:
+        - name: "NAMESPACE"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: cluster.name
+          value: elastic-search
+        - name: node.name
+          value: ${POD_NAME}
+        - name: node.master
+          value: 'true'
+        - name: node.data
+          value: 'true'
+        - name: network.host
+          value: 0.0.0.0
+        - name: network.publish_host
+          value: ${POD_NAME}.elastic-search
+        - name: http.port
+          value: '9200'
+        - name: transport.tcp.port
+          value: '9300'
+        - name: discovery.seed_hosts
+          value: "elastic-search-0.elastic-search:9300,elastic-search-1.elastic-search:9300,elastic-search-2.elastic-search:9300"
+        - name: cluster.initial_master_nodes
+          value: "elastic-search-0,elastic-search-1,elastic-search-2"
+        - name: http.cors.enabled
+          value: 'true'
+        - name: http.cors.allow-origin
+          value: '*'
+        - name: http.cors.allow-headers
+          value: 'Authorization'
+      volumes:
+      - name: data-storage
+        emptyDir: {}
+      initContainers:
+      - image: alpine:3.6
+        command: ["/sbin/sysctl", "-w", "vm.max_map_count=262144"]
+        name: elasticsearch-init
+        securityContext:
+          privileged: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elastic-search
+  namespace: bigdata
+spec:
+  ports:
+  - port: 9200
+    name: "9200"
+    targetPort: 9200
+  - port: 9300
+    name: "9300"
+    targetPort: 9300
+  - port: 9100
+    name: "9100"
+    targetPort: 9100
+  selector:
+    app: elastic-search
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elastic-search-svc
+  namespace: bigdata
+spec:
+  type: NodePort
+  ports:
+  - port: 9200
+    name: "9200"
+    targetPort: 9200
+    nodePort: 31920
+  - port: 9100
+    name: http
+    targetPort: 9100
+    nodePort: 31910
+  selector:
+    app: elastic-search

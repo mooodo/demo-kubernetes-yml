@@ -1,0 +1,110 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: hadoop-slave
+  name: hadoop-slave
+  namespace: bigdata
+spec:
+  replicas: 3
+  serviceName: hadoop-slave
+  podManagementPolicy: "Parallel"
+  selector:
+    matchLabels:
+      app: hadoop-slave
+  template:
+    metadata:
+      name: hadoop-slave
+      labels:
+        app: hadoop-slave
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - hadoop-slave
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: hadoop-slave
+        image: repository:5000/hadoop-hive
+        imagePullPolicy: Always
+        resources:
+          # need more cpu upon initialization, therefore burstable class
+          limits:
+            cpu: 1000m
+          requests:
+            cpu: 100m
+        command:
+        - bash
+        - "-c"
+        - |
+          cp /tmp/* /usr/local/hadoop/etc/hadoop/
+          sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" $HADOOP_HOME/etc/hadoop/core-site.xml
+          sed -i "s/file:\/\/\/root\/hdfs\/namenode/file:\/\/\/root\/hdfs\/namenode\/$POD_NAME/g" $HADOOP_HOME/etc/hadoop/hdfs-site.xml
+          sed -i "s/file:\/\/\/root\/hdfs\/datanode/file:\/\/\/root\/hdfs\/datanode\/$POD_NAME/g" $HADOOP_HOME/etc/hadoop/hdfs-site.xml
+          sed -i "s/@HADOOP_YARN_MASTER@/$HADOOP_YARN_MASTER/g" $HADOOP_HOME/etc/hadoop/yarn-site.xml
+          echo "Start DataNode ..."
+          nohup hdfs datanode -regular>$HADOOP_HOME/logs/hdfs.out 2>&1 &
+          echo "Start Yarn Resource Node  ..."
+          nohup yarn nodemanager>$HADOOP_HOME/logs/yarn.out 2>&1 &
+          tail -f $HADOOP_HOME/logs/hdfs.out
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: HDFS_MASTER_SERVICE
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HDFS_MASTER_SERVICE
+        - name: HADOOP_YARN_MASTER
+          valueFrom:
+            configMapKeyRef:
+              name: hadoop-conf
+              key: HADOOP_YARN_MASTER
+        volumeMounts:
+        - name: namenode-persistent-storage
+          mountPath: /root/hdfs/namenode
+        - name: datanode-persistent-storage
+          mountPath: /root/hdfs/datanode
+        - name: core-conf
+          mountPath: /tmp/core-site.xml
+          subPath: core-site.xml
+        - name: hdfs-conf
+          mountPath: /tmp/hdfs-site.xml
+          subPath: hdfs-site.xml
+        - name: yarn-conf
+          mountPath: /tmp/yarn-site.xml
+          subPath: yarn-site.xml
+      volumes:
+      - name: namenode-persistent-storage
+        #emptyDir: {}
+        hostPath:
+          path: /usr/local/hadoop/hdfs/namenode
+      - name: datanode-persistent-storage
+        #emptyDir: {}
+        hostPath:
+          path: /usr/local/hadoop/hdfs/datanode
+      - name: core-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: core-site.xml
+            path: core-site.xml
+      - name: hdfs-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: hdfs-site.xml
+            path: hdfs-site.xml
+      - name: yarn-conf
+        configMap:
+          name: hadoop-conf
+          items:
+          - key: yarn-site.xml
+            path: yarn-site.xml

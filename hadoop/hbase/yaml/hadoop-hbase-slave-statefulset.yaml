@@ -6,7 +6,7 @@ metadata:
   name: hadoop-slave
   namespace: bigdata
 spec:
-  replicas: 2
+  replicas: 3
   serviceName: hadoop-slave
   podManagementPolicy: "Parallel"
   selector:
@@ -18,15 +18,35 @@ spec:
       labels:
         app: hadoop-slave
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - hadoop-slave
+              topologyKey: "kubernetes.io/hostname"
       containers:
       - name: hadoop-slave
-        image: repository:5000/hadoop-hbase:kylin-phoenix
+        image: repository:5000/hadoop-hbase-kylin
+        imagePullPolicy: Always
+        resources:
+          # need more cpu upon initialization, therefore burstable class
+          limits:
+            cpu: 1000m
+          requests:
+            cpu: 100m
+            memory: 200Mi
         command:
         - bash
         - "-c"
         - |
           cp /tmp/* /usr/local/hadoop/etc/hadoop/
           sed -i "s/@HDFS_MASTER_SERVICE@/$HDFS_MASTER_SERVICE/g" $HADOOP_HOME/etc/hadoop/core-site.xml
+          sed -i "s/file:\/\/\/root\/hdfs\/namenode/file:\/\/\/root\/hdfs\/namenode\/$POD_NAME/g" $HADOOP_HOME/etc/hadoop/hdfs-site.xml
+          sed -i "s/file:\/\/\/root\/hdfs\/datanode/file:\/\/\/root\/hdfs\/datanode\/$POD_NAME/g" $HADOOP_HOME/etc/hadoop/hdfs-site.xml
           sed -i "s/@HADOOP_YARN_MASTER@/$HADOOP_YARN_MASTER/g" $HADOOP_HOME/etc/hadoop/yarn-site.xml
           echo "Start DataNode ..."
           nohup hdfs datanode -regular>$HADOOP_HOME/logs/hdfs.out 2>&1 &
@@ -46,6 +66,10 @@ spec:
           bash /usr/local/hbase/bin/start-hbase.sh
           tail -f $HADOOP_HOME/logs/hdfs.out
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: HDFS_MASTER_SERVICE
           valueFrom:
             configMapKeyRef:
@@ -70,17 +94,16 @@ spec:
         - name: yarn-conf
           mountPath: /tmp/yarn-site.xml
           subPath: yarn-site.xml
-        - name: hive-conf
-          mountPath: /usr/local/hive/conf/hive-site.xml
-          subPath: hive-site.xml
         - name: hbase-conf
           mountPath: /tmp/hbase-site.xml
           subPath: hbase-site.xml
       volumes:
       - name: namenode-persistent-storage
+        #emptyDir: {}
         hostPath:
           path: /usr/local/hadoop/hdfs/namenode
       - name: datanode-persistent-storage
+        #emptyDir: {}
         hostPath:
           path: /usr/local/hadoop/hdfs/datanode
       - name: core-conf
@@ -101,12 +124,6 @@ spec:
           items:
           - key: yarn-site.xml
             path: yarn-site.xml
-      - name: hive-conf
-        configMap:
-          name: hadoop-conf
-          items:
-          - key: hive-site.xml
-            path: hive-site.xml
       - name: hbase-conf
         configMap:
           name: hadoop-conf

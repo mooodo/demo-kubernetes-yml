@@ -1,4 +1,4 @@
-FROM hadoop/hadoop-spark
+FROM hadoop-sqoop-spark
 
 # install zookeeper
 ADD apache-zookeeper-3.5.9-bin.tar.gz /tmp
@@ -21,8 +21,5 @@ ENV KYLIN_HOME=/usr/local/kylin
 ENV PATH=$PATH:$KYLIN/bin
 EXPOSE 7070
 
-# install phoenix
-#ADD apache-phoenix-5.0.0-HBase-2.0-bin.tar.gz /tmp
-#RUN mv /tmp/apache-phoenix-5.0.0-HBase-2.0-bin /usr/local/phoenix
-#ENV PHOENIX_HOME=/usr/local/phoenix
-#RUN cp $PHOENIX_HOME/phoenix-core-5.0.0-HBase-2.0.jar $HBASE_HOME/lib
+# install elasticsearch jar
+ADD elasticsearch-hadoop-7.2.0.jar /usr/local/hive/lib

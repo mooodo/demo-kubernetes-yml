@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-master
+  namespace: bigdata
+spec:
+  ports:
+  - port: 9000
+    name: rpc
+    protocol: TCP
+    targetPort: 9000
+  - port: 50070
+    name: dfs
+  - port: 8030
+    name: "8030"
+    targetPort: 8030
+  - port: 8031
+    name: "8031"
+    targetPort: 8031
+  - port: 8032
+    name: "8032"
+    targetPort: 8032
+  - port: 8088
+    name: http
+    targetPort: 8088
+  - port: 2181
+    name: zkcli
+    targetPort: 2181
+  - port: 2888
+    name: zk1
+    targetPort: 2888
+  - port: 3888
+    name: zk2
+    targetPort: 3888
+  - port: 7070
+    name: kylin
+    targetPort: 7070
+  selector:
+    app: hadoop-master
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-svc
+  namespace: bigdata
+spec:
+  type: NodePort
+  ports:
+  - port: 50070
+    name: dfs
+    targetPort: 50070
+    nodePort: 32070
+  - port: 8088
+    name: http
+    targetPort: 8088
+    nodePort: 32088
+  - port: 8080
+    name: spark
+    targetPort: 8080
+    nodePort: 32080
+  - port: 4041
+    name: sparkui
+    targetPort: 4041
+    nodePort: 32041
+  - port: 8888
+    name: zookeeper
+    targetPort: 8888
+    nodePort: 32188
+  - port: 7070
+    name: kylin
+    targetPort: 7070
+    nodePort: 31070
+  selector:
+    app: hadoop-master

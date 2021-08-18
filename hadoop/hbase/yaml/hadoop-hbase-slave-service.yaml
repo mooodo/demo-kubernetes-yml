@@ -7,8 +7,6 @@ spec:
   ports:
   - port: 8040
     name: yarn-slave
-  - port: 8081
-    name: spark-worker
   - port: 16000
     name: hbase-cli
     targetPort: 16000
