@@ -1,0 +1,90 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: skywalking
+  name: skywalking 
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skywalking
+  template:
+    metadata:
+      name: skywalking
+      labels:
+        app: skywalking
+    spec:
+      containers:
+      - name: skywalking
+        image: repository:5000/skywalking-oap-server
+        imagePullPolicy: Always
+        command:
+        - bash
+        - "-c"
+        - |
+          bash startup.sh
+          tail -f $SW_HOME/logs/skywalking-oap-server.log
+        env:
+          - name: SW_CLUSTER
+            value: nacos
+          - name: SW_SERVICE_NAME
+            value: SkyWalking_OAP_Cluster
+          - name: SW_CLUSTER_NACOS_HOST_PORT
+            value: nacos-cluster:8848
+          - name: SW_CLUSTER_NACOS_USERNAME
+            value: nacos
+          - name: SW_CLUSTER_NACOS_PASSWORD
+            value: nacos
+          - name: SW_CONFIGURATION
+            value: nacos
+          - name: SW_CONFIG_NACOS_SERVER_ADDR
+            value: nacos-cluster
+          - name: SW_CONFIG_NACOS_SERVER_PORT
+            value: "8848"
+          - name: SW_CONFIG_NACOS_SERVER_GROUP
+            value: skywalking
+          - name: SW_CONFIG_NACOS_USERNAME
+            value: nacos
+          - name: SW_CONFIG_NACOS_PASSWORD
+            value: nacos
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: skywalking
+  name: skywalking
+  namespace: default
+spec:
+  ports:
+  - port: 11800 
+    targetPort: 11800
+    name: "11800"
+  - port: 12800
+    targetPort: 12800
+    name: "12800"
+  - port: 1234
+    targetPort: 1234
+    name: "1234"
+  selector:
+    app: skywalking
+  clusterIP: None
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: skywalking
+  name: skywalking-svc
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+  - port: 8080 
+    targetPort: 8080
+    nodePort: 30080
+  selector:
+    app: skywalking
