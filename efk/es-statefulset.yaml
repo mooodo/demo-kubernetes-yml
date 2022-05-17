@@ -66,18 +66,17 @@ spec:
         k8s-app: elasticsearch-logging
         version: v7.2.0
     spec:
-      nodeName: node2
       serviceAccountName: elasticsearch-logging
       containers:
       - image: repository:5000/elasticsearch:7.2.0
         name: elasticsearch-logging
         imagePullPolicy: Always
-        #resources:
+        resources:
           # need more cpu upon initialization, therefore burstable class
-          # limits:
-          #  cpu: 1000m
-          #requests:
-          #  cpu: 100m
+          limits:
+            cpu: 1000m
+          requests:
+            cpu: 100m
         ports:
         - containerPort: 9200
           name: db
