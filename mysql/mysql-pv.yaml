@@ -1,0 +1,72 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: mysql-pv-volume
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: nfs
+  nfs:
+    path: /data/nfs/mysql
+    server: 172.31.87.111
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mysql-pv-claim
+spec:
+  storageClassName: nfs
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-pv
+spec:
+  selector:
+    matchLabels:
+      app: mysql-pv
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql-pv
+    spec:
+      containers:
+        - image: mysql:5.6.35
+          name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: mysql1234
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-persistent-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: mysql-pv-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-pv
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 3306
+      targetPort: 3306
+      nodePort: 30306
+  selector:
+    app: mysql-pv

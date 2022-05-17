@@ -6,7 +6,7 @@ metadata:
   name: mysql 
   namespace: default
 spec:
-  replicas: 1
+  replicas: 3
   serviceName: mysql
   selector:
     matchLabels:
@@ -17,6 +17,16 @@ spec:
       labels:
         app: mysql
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - mysql
+              topologyKey: "kubernetes.io/hostname"
       containers:
       - name: mysql
         image: mysql:5.6.35
