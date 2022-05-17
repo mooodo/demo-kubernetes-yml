@@ -1,0 +1,76 @@
+groups:
+  - name: kube-prometheus-node-alerting.rules
+    rules:
+    - alert: Node_Disk_Space_Usage #/ 磁盘使用率
+      annotations:
+        message: node {{`{{$labels.node}}`}} / partition availability  {{`{{ $value }}`}}%
+      expr: |
+        100 * node_filesystem_free_bytes{job="node-exporter",mountpoint = "/"} / node_filesystem_size_bytes{mountpoint="/"}  < 20
+      for: 10m
+      labels:
+        severity: critical
+    - alert: Node_CPU_load_Space_Usage  #cpu使用率大于10
+      annotations:
+        message: "{{`{{$labels.node}}`}} load  gt 10， current vlues is {{`{{ $value }}`}}"
+      expr: |
+        node:node_cpu_saturation_load1: > 10
+      for: 10m
+      labels:
+        severity: critical
+    - alert: Node_Mem_Available_Resources  #mem可用资源
+      annotations:
+        message: "{{`{{$labels.node}}`}} memory Available resources，current vlues is {{`{{ $value }}`}} GB"
+      expr: |
+        node:node_memory_bytes_available:sum  / 1024 /1024 / 1024 < 1
+      for: 10m
+      labels:
+        severity: critical
+    - alert: Unusual_Network_Throughput_In #30分钟内主机网络接口可能接收过多数据（> 100 MB / s）
+      expr: sum by (instance) (irate(node_network_receive_bytes_total[2m])) / 1024 / 1024 > 100
+      for: 30m
+      labels:
+        severity: critical
+      annotations:
+        message: "instance {{`{{ $labels.instance }}`}} Host network interfaces are probably receiving too much data (> 100 MB/s)\n  VALUE = {{`{{ $value }}`}}"
+    - alert: Unusual_Network_Throughput_Out  #30分钟内主机网络接口可能发送过多数据（> 100 MB / s）
+      expr: sum by (instance) (irate(node_network_transmit_bytes_total[2m])) / 1024 / 1024 > 100
+      for: 30m
+      labels:  
+        severity: critical
+      annotations:
+        message: "instance {{`{{ $labels.instance }}`}} Host network interfaces are probably sending too much data (> 100 MB/s)\n VALUE = {{`{{ $value }}`}}"
+    - alert: Unusual_Disk_Read_Rate  #30分钟内主机磁盘持续50mb/s读取
+      expr: sum by (instance) (irate(node_disk_read_bytes_total[2m])) / 1024 / 1024 > 50
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        message: "{{`{{ $labels.instance }}`}} Disk is probably reading too much data (> 50 MB/s)\n  VVALUE = {{`{{ $value }}`}}"
+    - alert: Unusual_Disk_Write_Rate  #30分钟内主机磁盘持续50mb/s写入
+      expr: sum by (instance) (irate(node_disk_written_bytes_total[2m])) / 1024 / 1024 > 50
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        message: "{{`{{ $labels.instance }}`}} Disk is probably writing too much data (> 50 MB/s)\n  VALUE = {{`{{ $value }}`}}"
+    - alert: Out_Of_Inodes  #磁盘几乎没有可用的inode（剩下<10％）
+      expr: node_filesystem_files_free{mountpoint ="/rootfs"} / node_filesystem_files{mountpoint ="/rootfs"} * 100 < 10
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        description: "{{`{{ $labels.instance }}`}} Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{`{{ $value }}`}}"
+    - alert: Unusual_Disk_Read_Latency  #磁盘延迟正在增长（读取操作> 100ms）
+      expr: rate(node_disk_read_time_seconds_total[3m]) / rate(node_disk_reads_completed_total[3m]) > 100
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        description: "{{`{{ $labels.instance }}`}} Disk latency is growing (read operations > 100ms)\n  VALUE = {{`{{ $value }}`}}"
+    - alert: Unusual_Disk_Write_Latency  #磁盘延迟正在增长（写操作> 100ms）
+      expr: rate(node_disk_write_time_seconds_total[3m]) / rate(node_disk_writes_completed_total[3m]) > 100
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        description: "{{`{{ $labels.instance }}`}} Disk latency is growing (write operations > 100ms)\n   VALUE = {{`{{ $value }}`}}"
