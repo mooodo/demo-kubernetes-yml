@@ -1,5 +1,5 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: node-exporter
@@ -7,21 +7,31 @@ metadata:
   labels:
     k8s-app: node-exporter
 spec:
+  selector:
+    matchLabels:
+      k8s-app: node-exporter
   template:
     metadata:
       labels:
         k8s-app: node-exporter
+      annotations:
+        prometheus.io/scrape: 'true'
     spec:
       tolerations:
-      - key: node-role.kubernetes.io/master
-        effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
-      - image: repository:5000/node-exporter
-        name: node-exporter
-        ports:
-        - containerPort: 9100
-          protocol: TCP
-          name: http
+        - image: prom/node-exporter
+          name: node-exporter
+          ports:
+            - containerPort: 9100
+              protocol: TCP
+              name: http
+      hostNetwork: true
+      hostPID: true
+
 ---
 apiVersion: v1
 kind: Service
@@ -32,10 +42,9 @@ metadata:
   namespace: kube-system
 spec:
   ports:
-  - name: http
-    port: 9100
-    nodePort: 31100
-    protocol: TCP
-  type: NodePort
+    - name: http
+      port: 9100
+      protocol: TCP
+  clusterIP: None
   selector:
     k8s-app: node-exporter

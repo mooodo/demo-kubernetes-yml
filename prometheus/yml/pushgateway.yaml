@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pushgateway
+  namespace: kube-system
+  labels:
+    app: pushgateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pushgateway
+  template:
+    metadata:
+      labels:
+        app: pushgateway
+    spec:
+      containers:
+        - image: prom/pushgateway
+          name: pushgateway
+          imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pushgateway
+  namespace: kube-system
+  labels:
+    app: pushgateway
+spec:
+  ports:
+    - port: 9091
+      targetPort: 9091
+  selector:
+    app: pushgateway

@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana-core
@@ -8,6 +8,9 @@ metadata:
     component: core
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
   template:
     metadata:
       labels:
@@ -15,41 +18,41 @@ spec:
         component: core
     spec:
       containers:
-      - image: repository:5000/grafana/grafana
-        name: grafana-core
-        imagePullPolicy: IfNotPresent
-        # env:
-        resources:
-          # keep request = limit to keep this container in guaranteed class
-          #limits:
-          #  cpu: 100m
-          #  memory: 100Mi
-          #requests:
-          #  cpu: 100m
-          #  memory: 100Mi
-        env:
-          # The following env variables set up basic auth twith the default admin user and admin password.
-          - name: GF_AUTH_BASIC_ENABLED
-            value: "true"
-          - name: GF_AUTH_ANONYMOUS_ENABLED
-            value: "false"
-          # - name: GF_AUTH_ANONYMOUS_ORG_ROLE
-          #   value: Admin
-          # does not really work, because of template variables in exported dashboards:
-          # - name: GF_DASHBOARDS_JSON_ENABLED
-          #   value: "true"
-        readinessProbe:
-          httpGet:
-            path: /login
-            port: 3000
-          # initialDelaySeconds: 30
-          # timeoutSeconds: 1
-        volumeMounts:
-        - name: grafana-persistent-storage
-          mountPath: /usr/local
+        - image: grafana/grafana
+          name: grafana-core
+          imagePullPolicy: IfNotPresent
+          resources:
+            # keep request = limit to keep this container in guaranteed class
+            limits:
+              cpu: 100m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          env:
+            # The following env variables set up basic auth twith the default admin user and admin password.
+            - name: GF_AUTH_BASIC_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            # - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+            #   value: Admin
+            # does not really work, because of template variables in exported dashboards:
+            # - name: GF_DASHBOARDS_JSON_ENABLED
+            #   value: "true"
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            # initialDelaySeconds: 30
+            # timeoutSeconds: 1
+          volumeMounts:
+            - name: grafana-persistent-storage
+              mountPath: /usr/local
       volumes:
-      - name: grafana-persistent-storage
-        emptyDir: {}
+        - name: grafana-persistent-storage
+          hostPath:
+            path: /usr/local/grafana
 ---
 apiVersion: v1
 kind: Service
@@ -63,22 +66,7 @@ spec:
   type: NodePort
   ports:
     - port: 3000
-      nodePort: 31300
+      nodePort: 30300
   selector:
     app: grafana
     component: core
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-   name: grafana
-   namespace: kube-system
-spec:
-   rules:
-   - host: k8s.grafana
-     http:
-       paths:
-       - path: /
-         backend:
-          serviceName: grafana
-          servicePort: 3000
