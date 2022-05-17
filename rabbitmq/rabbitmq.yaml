@@ -16,12 +16,16 @@ spec:
       name: rabbitmq
       labels:
         app: rabbitmq
+      annotations:
+        prometheus.io/scrape: 'true'
     spec:
-      hostNetwork: true
       containers:
       - name: rabbitmq
         image: rabbitmq:management
         imagePullPolicy: Always
+        ports:
+        - containerPort: 15692
+          name: prometheus
         volumeMounts: 
          - name: data
            mountPath: /var/lib/rabbitmq
@@ -43,10 +47,34 @@ spec:
     port: 5671
   - name: amqp2
     port: 5672
-  - name: management
-    port: 15671
   - name: epmd
-    port: 25671
+    port: 4369
+  - name: erlang
+    port: 25672
+  - name: prometheus
+    port: 15692
   clusterIP: None
+  selector:
+    app: rabbitmq
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: rabbitmq
+  name: rabbitmq-svc
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+  - name: amqp1
+    port: 5671
+    nodePort: 31671
+  - name: amqp2
+    port: 5672
+    nodePort: 31672
+  - name: management
+    port: 15672
+    nodePort: 31673
   selector:
     app: rabbitmq

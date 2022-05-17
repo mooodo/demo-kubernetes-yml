@@ -32,5 +32,5 @@ kubectl exec -it rabbit-cluster-1 -- bash -c "rabbitmqctl stop_app;rabbitmqctl j
 在以上命令中，rabbit-cluster-1就是第1个节点，如果有第2个节点再改为rabbit-cluster-2以后执行...
 
 ### 4.检查集群部署
-访问http://ip:30671访问rabbitmq控制台
+访问http://ip:30673访问rabbitmq控制台
 

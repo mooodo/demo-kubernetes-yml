@@ -6,8 +6,9 @@ metadata:
   name: rabbit-cluster
   namespace: default
 spec:
-  replicas: 2
+  replicas: 4
   serviceName: rabbit-cluster
+  podManagementPolicy: "Parallel"
   selector:
     matchLabels:
       app: rabbit-cluster
@@ -16,11 +17,15 @@ spec:
       name: rabbit-cluster
       labels:
         app: rabbit-cluster
+      annotations:
+        prometheus.io/scrape: 'true'
     spec:
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm: 
+              labelSelector:
                 matchExpressions:
                   - key: "app"
                     operator: In
@@ -31,6 +36,9 @@ spec:
       - name: rabbitmq
         image: rabbitmq:management
         imagePullPolicy: Always
+        ports:
+        - containerPort: 15692
+          name: prometheus
         env:
         - name: RABBITMQ_USE_LONGNAME
           value: 'true'
@@ -39,7 +47,7 @@ spec:
             secretKeyRef:
               name: erlang.cookie
               key: erlang.cookie
-        command:
+        command: 
         - bash
         - "-c"
         - |
