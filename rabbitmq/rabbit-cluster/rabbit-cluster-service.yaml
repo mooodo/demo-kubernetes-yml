@@ -13,8 +13,6 @@ spec:
     port: 5672
   - name: epmd
     port: 4369
-  - name: prometheus
-    port: 15692
   clusterIP: None
   selector:
     app: rabbit-cluster
