@@ -2,70 +2,59 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   labels:
-    app: redis
-  name: redis
+    app: redis-cluster
+  name: redis-cluster
   namespace: default
 spec:
-  replicas: 1
-  serviceName: redis
+  replicas: 6
+  serviceName: redis-cluster
+  podManagementPolicy: "Parallel"
   selector:
     matchLabels:
-      app: redis
+      app: redis-cluster
   template:
     metadata:
-      name: redis
+      name: redis-cluster
       labels:
-        app: redis
+        app: redis-cluster
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: "9121"
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: "app"
+                      operator: In
+                      values:
+                        - redis-cluster
+                topologyKey: "kubernetes.io/hostname"
       containers:
         - name: redis
           image: redis
           imagePullPolicy: Always
+          command: ["redis-server","/etc/redis/redis.conf"]
           volumeMounts:
             - name: data
-              mountPath: /data
+              mountPath: /mnt
+            - name: config
+              mountPath: /etc/redis/redis.conf
+              subPath: redis.conf
         - name: redis-exporter
           image: oliver006/redis_exporter
           ports:
             - containerPort: 9121
       volumes:
+        - name: config
+          configMap:
+            name: redis-configmap
+            items:
+              - key: redis.conf
+                path: redis.conf
         - name: data
           hostPath:
             path: /etc/redis
-
----
-kind: Service
-apiVersion: v1
-metadata:
-  labels:
-    app: redis
-  name: redis
-  namespace: default
-spec:
-  ports:
-    - name: http
-      port: 6379
-  clusterIP: None
-  selector:
-    app: redis
-
----
-kind: Service
-apiVersion: v1
-metadata:
-  labels:
-    app: redis
-  name: redis-svc
-  namespace: default
-spec:
-  type: NodePort
-  ports:
-    - name: http
-      port: 6379
-      targetPort: 6379
-      nodePort: 31379
-  selector:
-    app: redis
