@@ -3,7 +3,7 @@ apiVersion: apps/v1
 metadata:
   labels:
     app: redis
-  name: redis 
+  name: redis
   namespace: default
 spec:
   replicas: 1
@@ -16,18 +16,25 @@ spec:
       name: redis
       labels:
         app: redis
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "9121"
     spec:
       containers:
-      - name: redis
-        image: redis
-        imagePullPolicy: Always
-        volumeMounts: 
-         - name: data
-           mountPath: /data
+        - name: redis
+          image: redis
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        - name: redis-exporter
+          image: oliver006/redis_exporter
+          ports:
+            - containerPort: 9121
       volumes:
-      - name: data
-        hostPath:
-          path: /etc/redis
+        - name: data
+          hostPath:
+            path: /etc/redis
 
 ---
 kind: Service
@@ -39,8 +46,8 @@ metadata:
   namespace: default
 spec:
   ports:
-  - name: http
-    port: 6379
+    - name: http
+      port: 6379
   clusterIP: None
   selector:
     app: redis
@@ -56,9 +63,9 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - name: http
-    port: 6379
-    targetPort: 6379
-    nodePort: 31379
+    - name: http
+      port: 6379
+      targetPort: 6379
+      nodePort: 31379
   selector:
     app: redis
