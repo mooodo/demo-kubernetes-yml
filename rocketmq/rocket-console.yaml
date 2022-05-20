@@ -1,0 +1,52 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: rocket-console
+  name: rocket-console
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rocket-console
+  template:
+    metadata:
+      name: rocket-console
+      labels:
+        app: rocket-console
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - rocket-console
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: console
+        image: styletang/rocketmq-console-ng
+        imagePullPolicy: Always
+        env:
+          - name: JAVA_OPTS
+            value: "-Drocketmq.namesrv.addr=rocket-namesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false"
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: rocket-console
+  name: rocket-console
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30880
+  selector:
+    app: rocket-console

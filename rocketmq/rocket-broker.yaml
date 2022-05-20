@@ -1,0 +1,111 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: rocket-broker
+  name: rocket-broker
+  namespace: default
+spec:
+  replicas: 2
+  serviceName: rocket-broker
+  podManagementPolicy: "Parallel"
+  selector:
+    matchLabels:
+      app: rocket-broker
+  template:
+    metadata:
+      name: rocket-broker
+      labels:
+        app: rocket-broker
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm: 
+              labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - rocket-broker
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: rocketmq
+        image: foxiswho/rocketmq:broker-4.5.1
+        imagePullPolicy: Always
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: TZ
+          value: "Asia/Shanghai"
+        - name: NAMESRV_ADDR
+          value: rocket-namesrv:9876
+        - name: MAX_POSSIBLE_HEAP
+          value: "200000000"
+        command: 
+        - bash
+        - "-c"
+        - |
+          [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+          ordinal=${BASH_REMATCH[1]}
+          cp /tmp/broker.conf broker.conf
+          sed -i "s/@BROKER_NAME@/broker-$ordinal/g" broker.conf
+          mqbroker -c broker.conf
+        volumeMounts: 
+        - name: data
+          mountPath: /root/store
+        - name: logs
+          mountPath: /root/logs
+        - name: config
+          mountPath: /tmp/broker.conf
+          subPath: broker.conf
+      volumes:
+      - name: data
+        hostPath:
+          path: /usr/local/rocketmq/store
+      - name: logs
+        hostPath:
+          path: /usr/local/rocketmq/logs
+      - name: config
+        configMap:
+          name: rocket-broker-configmap
+          items:
+          - key: broker.conf
+            path: broker.conf
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: rocket-broker
+  name: rocket-broker
+  namespace: default
+spec:
+  ports:
+  - name: "10911"
+    port: 10911
+  - name: "10909"
+    port: 10909
+  clusterIP: None
+  selector:
+    app: rocket-broker
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: rocket-broker-configmap
+  namespace: default
+  labels:
+    app: rocket-broker
+data:
+  broker.conf: |-
+    brokerClusterName = DefaultCluster
+    brokerName = @BROKER_NAME@
+    brokerId = 0
+    deleteWhen = 04
+    fileReservedTime = 48
+    brokerRole = ASYNC_MASTER
+    flushDiskType = ASYNC_FLUSH

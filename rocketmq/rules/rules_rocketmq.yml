@@ -1,0 +1,35 @@
+# rules_rocketmq.yml
+groups:
+  - name: rocketmq
+    rules:
+      - alert: RocketMQ Exporter is Down
+        expr: up{job="rocketmq"} == 0
+        for: 20s
+        labels:
+          severity: '灾难'
+        annotations:
+          summary: RocketMQ {{ $labels.instance }} is down
+      - alert: RocketMQ 存在消息积压
+        expr: (sum(irate(rocketmq_producer_offset[1m])) by (topic)  - on(topic) group_right sum(irate(rocketmq_consumer_offset[1m])) by (group,topic)) > 5
+        for: 5m
+        labels:
+          severity: '警告'
+        annotations:
+          summary: RocketMQ (group={{ $labels.group }} topic={{ $labels.topic }})积压数 = {{ .Value }}
+      - alert: GroupGetLatencyByStoretime 消费组的消费延时时间过高
+        expr: rocketmq_group_get_latency_by_storetime/1000  > 5 and rate(rocketmq_group_get_latency_by_storetime[5m]) >0
+        for: 3m
+        labels:
+          severity: 警告
+        annotations:
+          description: 'consumer {{$labels.group}} on {{$labels.broker}}, {{$labels.topic}} consume time lag behind message store time
+        and (behind value is {{$value}}).'
+          summary: 消费组的消费延时时间过高
+      - alert: RocketMQClusterProduceHigh 集群TPS > 20
+        expr: sum(rocketmq_producer_tps) by (cluster) >= 20
+        for: 3m
+        labels:
+          severity: 警告
+        annotations:
+          description: '{{$labels.cluster}} Sending tps too high. now TPS = {{ .Value }}'
+          summary: cluster send tps too high

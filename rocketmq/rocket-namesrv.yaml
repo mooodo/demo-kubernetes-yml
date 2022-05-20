@@ -1,0 +1,62 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: rocket-namesrv
+  name: rocket-namesrv
+  namespace: default
+spec:
+  replicas: 1
+  serviceName: rocket-namesrv
+  selector:
+    matchLabels:
+      app: rocket-namesrv
+  template:
+    metadata:
+      name: rocket-namesrv
+      labels:
+        app: rocket-namesrv
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm: 
+              labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                      - rocket-namesrv
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: rocketmq
+        image: foxiswho/rocketmq:server-4.5.1
+        imagePullPolicy: Always
+        volumeMounts: 
+        - name: data
+          mountPath: /root/store
+        - name: logs
+          mountPath: /root/logs
+      volumes:
+      - name: data
+        hostPath:
+          path: /usr/local/rocketmq/store
+      - name: logs
+        hostPath:
+          path: /usr/local/rocketmq/logs
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: rocket-namesrv
+  name: rocket-namesrv
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 9876
+  clusterIP: None
+  selector:
+    app: rocket-namesrv
