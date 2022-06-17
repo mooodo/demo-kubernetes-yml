@@ -68,7 +68,7 @@ spec:
     spec:
       serviceAccountName: elasticsearch-logging
       containers:
-      - image: repository:5000/elasticsearch:7.2.0
+      - image: elasticsearch:7.2.0
         name: elasticsearch-logging
         imagePullPolicy: Always
         resources:
