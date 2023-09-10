@@ -13,7 +13,7 @@ spec:
   ports:
   - port: 5601
     protocol: TCP
-    targetPort: 5601
+    targetPort: ui
     nodePort: 31601
   selector:
     k8s-app: kibana-logging
