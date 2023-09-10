@@ -1,247 +1,251 @@
-# Kubernetes的安装部署
-这是一个Kubernetes的安装部署过程，版本是1.11.0
-
+# 安装Kubernetes 1.20
 ## 准备工作
-写入hosts
-
-```bash
-echo "10.211.55.18    k8s-master-1
-10.211.55.19    k8s-node-1
-10.211.55.20    k8s-node-2" >> /etc/hosts
+### 1. 设置hosts
+```shell
+cat <<EOF > /etc/hosts
+192.168.211.10 master
+192.168.211.11 node1
+192.168.211.12 node2
+192.168.211.13 node3
+EOF
 ```
-关闭防火墙
+### 2. 进行linux相关配置
+```shell
+setenforce  0
+sed -i "s/^SELINUX=enforcing/SELINUX=disabled/g" /etc/sysconfig/selinux
+sed -i "s/^SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
+sed -i "s/^SELINUX=permissive/SELINUX=disabled/g" /etc/sysconfig/selinux
+sed -i "s/^SELINUX=permissive/SELINUX=disabled/g" /etc/selinux/config
 
-```bash
 systemctl stop firewalld
 systemctl disable firewalld
-```
-禁用SELINUX
 
-```bash
-setenforce 0
-vi /etc/selinux/config 
-#SELINUX=disabled
-```
-开启ipvs，kube-proxy开启ipvs的前置条件需要加入以下内核模块：
+swapoff -a
+sed -i 's/.*swap.*/#&/' /etc/fstab
 
-```bash
-cat > /etc/sysconfig/modules/ipvs.modules <<EOF
-#!/bin/bash
-modprobe -- ip_vs
-modprobe -- ip_vs_rr
-modprobe -- ip_vs_wrr
-modprobe -- ip_vs_sh
-modprobe -- nf_conntrack_ipv4
+cat > /etc/sysctl.d/k8s.conf <<EOF
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
 EOF
-chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep -e ip_vs -e nf_conntrack_ipv4
-```
-
-关闭swap
-
-```bash
-swapoff –a
-```
-修改 /etc/fstab 文件，注释掉 SWAP 的自动挂载，使用free -m确认swap已经关闭。 swappiness参数调整，修改/etc/sysctl.d/k8s.conf添加下面一行：
-vm.swappiness=0
-执行生效：
-
-```bash
 sysctl -p /etc/sysctl.d/k8s.conf
+echo "* soft nofile 655360" >> /etc/security/limits.conf
+echo "* hard nofile 655360" >> /etc/security/limits.conf
+echo "* soft nproc 655360"  >> /etc/security/limits.conf
+echo "* hard nproc 655360"  >> /etc/security/limits.conf
+echo "* soft  memlock  unlimited"  >> /etc/security/limits.conf
+echo "* hard memlock  unlimited"  >> /etc/security/limits.conf
+echo "DefaultLimitNOFILE=1024000"  >> /etc/systemd/system.conf
+echo "DefaultLimitNPROC=1024000"  >> /etc/systemd/system.conf
+ulimit -Hn
 ```
-
-## 安装Docker (所有节点都要执行)
-1.检查linux内核版本
-
-```bash
-uname -r
+## 安装Docker（所有节点）
+### 1. 检查linux内核版本
+``uname -r``
+### 2. 使用 root 权限登录 Centos，确保 yum 包更新到最新
+```yum update```
+### 3. 安装需要的软件包，其中yum-util提供yum-config-manager功能
+```sudo yum install -y yum-utils device-mapper-persistent-data lvm2```
+### 4. 设置docker的yum源
+```shell
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
 ```
-2.使用 root 权限登录 Centos，确保 yum 包更新到最新，但可能会报错说没有定义yum仓库
-
-```bash
-yum update
+### 5. 安装docker
+``yum install docker-ce -y``
+### 6. 配置容器加速器（阿里云）
+```shell
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+      "registry-mirrors": ["https://rpbig1xh.mirror.aliyuncs.com"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
 ```
-3.安装需要的软件包，其中yum-util提供yum-config-manager功能
-
-```bash
-sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+## 安装Kubernetes（所有节点）
+### 1. 使用yum进行安装
+```shell
+rm -rf  /etc/yum.repos.d/*
+wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.cloud.tencent.com/repo/centos7_base.repo
+wget -O /etc/yum.repos.d/epel.repo http://mirrors.cloud.tencent.com/repo/epel-7.repo
 ```
-4.设置docker的yum源
-
-```bash
-$ yum-config-manager \
---add-repo https://download.docker.com/linux/centos/docker-ce.repo
-```
-5.查看各docker版本
-
-```bash
-$ yum list docker-ce --showduplicates | sort -r
-```
-6.安装docker
-
-```bash
-$ yum install docker-ce-17.12.0.ce
-```
-
-## 使用kubeadm部署Kubernetes
-### 1.添加阿里的源(所有节点都执行)
-官网是：
-
-```bash
+```shell
 cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
 enabled=1
 gpgcheck=1
 repo_gpgcheck=1
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg  
 EOF
-```
-现改为阿里的源：
+yum clean all && yum makecache
 
-```bash
-cat <<EOF > /etc/yum.repos.d/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
-EOF
-```
-安装必要组件：
+yum install  -y conntrack ipvsadm ipset jq sysstat curl iptables libseccomp bash-completion yum-utils device-mapper-persistent-data lvm2 net-tools conntrack-tools vim libtool-ltdl
 
-```bash
-yum -y install epel-release
-yum clean all
-yum makecache fast
-yum -y install kubelet-1.11.7-0.x86_64 kubeadm-1.11.7-0.x86_64 kubectl-1.11.7-0.x86_64 kubernetes-cni
+yum -y install chrony
+systemctl enable chronyd.service && systemctl start chronyd.service && systemctl status chronyd.service
+chronyc sources
+
+yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
 systemctl enable kubelet && systemctl start kubelet
 ```
-下载启动k8s所需的所有容器：  
-注意：安装k8s最大的难题是不能直接从google网站下载，因此采用这种方式
-
-```bash
-cd <安装目录>/kubernetes
-chmod -R 777 ./xxx.sh
-./xxx.sh
-```
-
-### 2.使用kubeadm init初始化集群（仅master上执行）
-启动k8s主节点
-
-```bash
-kubeadm init --kubernetes-version=v1.11.0 --pod-network-cidr=10.244.0.0/16
-```
-
-记住控制台输出的最后一句话，类似：
-
-```bash
-kubeadm join 172.19.1.109:6443 --token 8b1jm7.6951eviubal4x39q --discovery-token-ca-cert-hash sha256:6412
-50cfbffae1e857a26d83c1e79f3d4c7d2759359e868406375784be1c1626
-```
-每次执行init的token都不一样，这是其它节点加入主节点的命令  
-
-如果要停机k8s集群在每个节点执行：
-
-```bash
-kubeadm reset
-```
-
-初次启动以后执行一下命令：
-
-```bash
-mkdir -p ~/.kube
-cp -i /etc/kubernetes/admin.conf ~/.kube/config
-chown $(id -u):$(id -g) ~/.kube/config
-```
-
-配置 kubectl 认证信息
-
-```bash
-export KUBECONFIG=/etc/kubernetes/admin.conf
-echo "export KUBECONFIG=/etc/kubernetes/admin.conf" >> ~/.bash_profile
-```
-### 3.安装 Flannel 网络（仅master上执行）
-
-```bash
-mkdir -p /etc/cni/net.d/
-
-cat <<EOF> /etc/cni/net.d/10-flannel.conf
-{
-“name”: “cbr0”,
-“type”: “flannel”,
-“delegate”: {
-“isDefaultGateway”: true
-}
-}
+### 2. 下载相关Docker镜像
+```shell
+cat <<EOF > pull-k8s-images.sh
+#!/bin/bash
+images=(
+kube-apiserver:v1.20.4
+kube-controller-manager:v1.20.4
+kube-scheduler:v1.20.4
+kube-proxy:v1.20.4
+pause:3.2
+etcd:3.4.13-0
+coredns:1.7.0
+)
+for imageName in ${images[@]} ; do
+docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/$imageName
+docker tag registry.cn-hangzhou.aliyuncs.com/google_containers/$imageName k8s.gcr.io/$imageName
+docker rmi registry.cn-hangzhou.aliyuncs.com/google_containers/$imageName
+done
 EOF
 
-mkdir /usr/share/oci-umount/oci-umount.d -p
-
-mkdir /run/flannel/
-
-cat <<EOF> /run/flannel/subnet.env
-FLANNEL_NETWORK=10.244.0.0/16
-FLANNEL_SUBNET=10.244.1.0/24
-FLANNEL_MTU=1450
-FLANNEL_IPMASQ=true
-EOF
+chmod 777 pull-k8s-images.sh
+./pull-k8s-images.sh
 ```
-执行脚本：
-
-```bash
-kubectl create -f ./flannel.yml
+## 启动Kubernetes
+### 1. 启动Kubernetes主节点
+```shell
+kubeadm init --kubernetes-version=v1.20.4 --pod-network-cidr=10.244.0.0/16
 ```
-检查运行状态，执行：
-
-```bash
-kubectl -n kube-system get pods
+**注意：**
++ 启动过程中记录下类似以下内容：
+```shell
+kubeadm join 172.31.87.109:6443 --token n8tu9g.w7tqh4mqn6895z2l \
+--discovery-token-ca-cert-hash sha256:47b9dc4c420ce8491e05948e5115774a481fc90f5ca3113cc97dd77a30d98399
 ```
-得到结果：
-
++ 如果没有记录以上内容，或者日后有节点需要加入，可以执行以下命令重新创建：
+```shell
+kubeadm token create --print-join-command
 ```
-NAME                                   READY     STATUS    RESTARTS   AGE
-coredns-78fcdf6894-ddb54               1/1       Running   0          1h
-coredns-78fcdf6894-qqqxf               1/1       Running   0          1h
-etcd-172-19-1-109                      1/1       Running   0          1h
-kube-apiserver-172-19-1-109            1/1       Running   0          1h
-kube-controller-manager-172-19-1-109   1/1       Running   0          1h
-kube-flannel-ds-zq9ns                  1/1       Running   0          50m
-kube-proxy-hs89s                       1/1       Running   0          1h
-kube-scheduler-172-19-1-109            1/1       Running   0          1h
+1) 执行以下命令：
+```shell
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
 ```
-如果所有节点都处于Running状态，主节点安装成功
-
-## 加入worker节点(所有从节点执行)
-依次在每个从节点上执行join操作：
-
-```bash
-kubeadm join 172.19.1.109:6443 --token 8b1jm7.6951eviubal4x39q --discovery-token-ca-cert-hash sha256:641250cfbffae1e857a26d83c1e79f3d4c7d2759359e868406375784be1c1626
+2) 启动flannel虚拟网络：
+```shell
+curl https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml -O
+kubectl apply -f kube-flannel.yml
 ```
-
-注意：每次主节点reset以后，会生成一个新的token，因此每个从节点需要先执行kubeadm reset，然后再执行join操作。  
-
-回到master节点执行：
-
-```bash
+3) 检查Kubernetes是否正常启动：
+```shell
 kubectl get nodes
 ```
-得到结果：
-
+## 启动Kubernetes从节点
++ 执行加入命令：
+```shell
+kubeadm join 172.31.87.109:6443 --token n8tu9g.w7tqh4mqn6895z2l \
+--discovery-token-ca-cert-hash sha256:47b9dc4c420ce8491e05948e5115774a481fc90f5ca3113cc97dd77a30d98399
 ```
-NAME        STATUS   ROLES    AGE   VERSION
-k8s-master-1   Ready    master   10d   v1.11.7
-k8s-node-1    Ready    <none>   10d   v1.11.7
-k8s-node-2    Ready    <none>   10d   v1.11.7
++ 日后执行加入命令先执行以下命令获得token：
+```shell
+kubeadm token create --print-join-command
 ```
-如果都是Ready状态，表明k8s集群安装成功！如果有NotReady状态，检查集群安装过程，最大可能是Flannel虚拟网络未正确安装。
-
-## 安装Dashboard
-执行命令：
-
-```bash
-cd dashboard
-kubectl  -n kube-system create -f .
++ 检查Kubernetes是否正常启动：
+```shell
+kubectl get nodes
+kubectl get po -n kube-system
+```
+## 安装控制台Dashboard
+```shell
+curl https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0/aio/deploy/recommended.yaml -O
+```
+### 修改该文件以下内容：
+```yaml
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+spec:
+  type: NodePort # 修改为外部可访问
+  ports:
+  - port: 443
+    targetPort: 8443
+    nodePort: 30443 # 设置外部网络端口
+  selector:
+    k8s-app: kubernetes-dashboard
+```
+### 执行命令
+```shell
+kubectl apply -f recommended.yaml
+```
+### 查看token：
+```shell
+kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep dashboard-admin | awk '{print $1}')
+```
+访问：https://<k8s任意节点>:30443，选择Token登录，粘贴刚才生成的token
+## 安装kube-state-metrics
+```shell
+cd kube-state-metrics
+kubectl apply -f .
+```
+## 安装metric-server
+### 下载yaml文件
+```shell
+wget https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+### 下载Docker镜像
+```shell
+docker pull bitnami/metrics-server:0.4.2
+docker tag bitnami/metrics-server:0.4.2 k8s.gcr.io/metrics-server/metrics-server:v0.4.2
+```
+### 修改yaml文件以下内容：
+```yaml
+    spec:
+      containers:
+        - args:
+            - --cert-dir=/tmp
+            - --secure-port=4443
+            - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+            - --kubelet-use-node-status-port
+            - --kubelet-insecure-tls
+```
+### 执行命令
+```shell
+$ kubectl apply -f components.yaml
+$ kubectl -n kube-system get deploy metrics-server
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+metrics-server   1/1     1            1           3d
+```
+### 查看node资源
+```shell
+$ kubectl top nodes
+NAME         CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%   
+k8s-master   258m         12%    880Mi           23%       
+k8s-node1    96m          4%     562Mi           14%       
+k8s-node2    139m         6%     601Mi           15%
+```
+### 查看pod资源
+```shell
+$ kubectl -n kube-system top pods
+NAME                                 CPU(cores)   MEMORY(bytes)   
+coredns-bccdc95cf-5wqq6              4m           12Mi            
+coredns-bccdc95cf-p8xzq              3m           11Mi            
+etcd-k8s-master                      21m          52Mi            
+kube-apiserver-k8s-master            32m          268Mi           
+kube-controller-manager-k8s-master   15m          42Mi            
+kube-flannel-ds-amd64-pgwgb          3m           14Mi            
+kube-flannel-ds-amd64-v5j5q          3m           13Mi            
+kube-flannel-ds-amd64-zjpq8          2m           11Mi            
+kube-proxy-nf688                     1m           15Mi            
+kube-proxy-tfb6q                     1m           15Mi            
+kube-proxy-wsx7d                     4m           15Mi            
+kube-scheduler-k8s-master            2m           12Mi            
+metrics-server-7ccb6455b9-nzhck      1m           12Mi
 ```
