@@ -41,6 +41,7 @@ spec:
           mountPath: /var/lib/mysql
       volumes:
       - name: mysql-persistent-storage
+        #emptyDir: {}
         hostPath:
           path: /mnt/data
 ---
