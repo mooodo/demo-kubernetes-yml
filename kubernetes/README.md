@@ -200,11 +200,6 @@ kubectl apply -f .
 ```shell
 wget https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
-### 下载Docker镜像
-```shell
-docker pull bitnami/metrics-server:0.4.2
-docker tag bitnami/metrics-server:0.4.2 k8s.gcr.io/metrics-server/metrics-server:v0.4.2
-```
 ### 修改yaml文件以下内容：
 ```yaml
     spec:
@@ -215,6 +210,11 @@ docker tag bitnami/metrics-server:0.4.2 k8s.gcr.io/metrics-server/metrics-server
             - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
             - --kubelet-use-node-status-port
             - --kubelet-insecure-tls
+```
+### 下载Docker镜像
+```shell
+docker pull bitnami/metrics-server:0.4.2
+docker tag bitnami/metrics-server:0.4.2 k8s.gcr.io/metrics-server/metrics-server:v0.4.2
 ```
 ### 执行命令
 ```shell
