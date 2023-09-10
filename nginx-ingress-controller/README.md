@@ -2,7 +2,7 @@
 nginx-ingress-controller是kubernetes平台的入口流量技术方案，要部署该方案应注意以下要点：
 
 ### 部署负载均衡
-首先应在kubernetes平台之外，nginx-ingress-controller部署一个负载均衡（如LVS, HAProxy等），接收所有用户入口流量，然后再负载均衡到nginx-ingress-controller的多个节点中。
+首先应在kubernetes平台之外，为nginx-ingress-controller部署一个负载均衡（如LVS, HAProxy等），接收所有用户入口流量，然后再负载均衡到nginx-ingress-controller的多个节点中。
 ### 多节点部署nginx-ingress-controller
 mandatory.yaml是官方脚本，nginx-ingress-controller.yaml是改进版本，它首先将nginx-ingress-controller.yaml改为DaemonSet部署，部署前需要在Kubernetes平台各Node节点上打标签：
 ```shell
