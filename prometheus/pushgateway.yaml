@@ -16,9 +16,9 @@ spec:
         app: pushgateway
     spec:
       containers:
-        - image: prom/pushgateway
-          name: pushgateway
-          imagePullPolicy: IfNotPresent
+      - image: prom/pushgateway
+        name: pushgateway
+        imagePullPolicy: IfNotPresent
 ---
 apiVersion: v1
 kind: Service
@@ -32,4 +32,4 @@ spec:
     - port: 9091
       targetPort: 9091
   selector:
-    app: pushgateway
+    app: pushgateway 

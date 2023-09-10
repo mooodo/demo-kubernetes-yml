@@ -18,17 +18,17 @@ spec:
         prometheus.io/scrape: 'true'
     spec:
       tolerations:
-        - key: node-role.kubernetes.io/master
-          effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
       nodeSelector:
         kubernetes.io/os: linux
       containers:
-        - image: prom/node-exporter
-          name: node-exporter
-          ports:
-            - containerPort: 9100
-              protocol: TCP
-              name: http
+      - image: prom/node-exporter
+        name: node-exporter
+        ports:
+        - containerPort: 9100
+          protocol: TCP
+          name: http
       hostNetwork: true
       hostPID: true
 
@@ -42,9 +42,9 @@ metadata:
   namespace: kube-system
 spec:
   ports:
-    - name: http
-      port: 9100
-      protocol: TCP
+  - name: http
+    port: 9100
+    protocol: TCP
   clusterIP: None
   selector:
     k8s-app: node-exporter

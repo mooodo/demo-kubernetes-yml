@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dingtalk-config
+  namespace: kube-system
+data:
+  config.yml: |
+    targets:
+      webhook1:
+        url: <在钉钉中建立一个机器人，然后钉钉会给你一个url>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dingtalk
+  namespace: kube-system
+  labels:
+    app: dingtalk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dingtalk
+  template:
+    metadata:
+      labels:
+        app: dingtalk
+    spec:
+      containers:
+      - name: dingtalk
+        image: timonwong/prometheus-webhook-dingtalk
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: dingtalk-conf
+          mountPath: /etc/prometheus-webhook-dingtalk
+      volumes:
+      - name: dingtalk-conf
+        configMap:
+          name: dingtalk-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dingtalk
+  namespace: kube-system
+  labels:
+    app: dingtalk
+spec:
+  ports:
+    - port: 8060
+      targetPort: 8060
+  selector:
+    app: dingtalk
