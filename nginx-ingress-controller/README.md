@@ -8,6 +8,13 @@ mandatory.yaml是官方脚本，nginx-ingress-controller.yaml是改进版本，�
 ```shell
 kubectl label nodes node1 ingress=
 ```
-通过该标签控制nginx-ingress-controller的部署，有多少个Node节点打了这个标签，就会部署多少个节点。
+通过该标签控制nginx-ingress-controller的部署，有多少个Node节点打了这个标签，就会部署多少个节点：
+```shell
+kubectl apply -f nginx-ingress-controller.yaml
+```
 ### 配置负载均衡
-将部署了nginx-ingress-controller的Node节点，其物理IP地址配置到负载均衡中，实现入口流量的负载均衡
+查找已经部署好的所有nginx-ingress-controller的IP地址
+```shell
+kubectl get po -n kube-system -o wide |grep nginx-ingress-controller
+```
+将部署了nginx-ingress-controller的Node节点，其物理IP地址配置到负载均衡（如LVS, HAProxy等）中，实现入口流量的负载均衡
