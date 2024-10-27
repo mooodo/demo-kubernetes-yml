@@ -47,6 +47,25 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
-    nodePort: 30880
   selector:
     app: rocket-console
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-rocket
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: rocket
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rocket-console
+                port:
+                  number: 8080

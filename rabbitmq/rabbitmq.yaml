@@ -49,6 +49,8 @@ spec:
     port: 5672
   - name: epmd
     port: 4369
+  - name: management
+    port: 15672
   clusterIP: None
   selector:
     app: rabbitmq
@@ -69,8 +71,25 @@ spec:
   - name: amqp2
     port: 5672
     nodePort: 31672
-  - name: management
-    port: 15672
-    nodePort: 31673
   selector:
     app: rabbitmq
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-rabbitmq
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: rabbit
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rabbitmq
+                port:
+                  number: 15672

@@ -6,7 +6,7 @@ metadata:
   name: rocket-namesrv
   namespace: default
 spec:
-  replicas: 1
+  replicas: 2
   serviceName: rocket-namesrv
   selector:
     matchLabels:
